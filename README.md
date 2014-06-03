@@ -1,5 +1,5 @@
-Node.js FTP APIs
-================
+Node.js FTP API
+===============
 
 This demonstrates how to connect to the ftp server with Node.js. You will need to know your apikey and password which can be found in the UI: API Keys -\> Manage -\> Actions -\> Access Details. Once you
 have that you can try the main.js file for an upload demo. For example:

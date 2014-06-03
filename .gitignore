@@ -14,6 +14,7 @@ nbproject/private/
 .fontconfig
 *.zip
 *.lock
+node_modules
 
 ##
 # Node.js gitignore from https://github.com/github/gitignore
