@@ -157,9 +157,10 @@ module.exports = function(opts) {
    * to do this.
    *
    * @param {string} location The location to download the file to.
+   * @param {boolean} [removeAfter=false] If the results file should be removed after downloading.
    * @param {function(err="")} callback Called when the function completes or there is an error.
    */
-  self.download = function(location, callback) {
+  self.download = function(location, removeAfter, callback) {
     self.watchUpload(function(err) {
       if (err){
         return callback(err);
@@ -167,8 +168,24 @@ module.exports = function(opts) {
       location = location.replace(new RegExp('\/$'), '');// Remove trailing slash if present
 
       var filename = self.toDownloadFormat(self.uploadFileName);
-      self.ftp.get('/complete/' + filename, location + '/' + filename.split('/').pop(), callback);
-    })
+      self.ftp.get('/complete/' + filename, location + '/' + filename.split('/').pop(), function(err) {
+        if (err || !removeAfter){
+          return callback(err);
+        }
+
+        self.remove(callback);
+      });
+    });
+  };
+
+  /**
+   * @description
+   * Removes the results file from the server.
+   *
+   * @param {function(err="")} callback Called when the function completes or there is an error.
+   */
+  self.remove = function(callback) {
+    self.ftp.raw.dele('/complete/' + self.toDownloadFormat(self.uploadFileName), callback);
   };
 
   /**

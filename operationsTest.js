@@ -32,6 +32,7 @@ describe('Operations', function() {
       setDebugMode: stub(),
 
       raw: {
+        dele: stub(),
         quit: stub()
       },
 
@@ -317,10 +318,11 @@ describe('Operations', function() {
     beforeEach(function() {
       callback = stub();
       stub(operations, 'watchUpload');
+      stub(operations, 'toDownloadFormat').returns('test/test.zip');
     });
 
     it('should call watchUpload with a function that calls the callback on error', function() { 
-      operations.download('', callback);
+      operations.download('', false, callback);
 
       expect(operations.watchUpload.calledOnce).to.be.true;
       operations.watchUpload.args[0][0]('An Error');
@@ -331,15 +333,51 @@ describe('Operations', function() {
     it('should call watchUpload with a function that call ftp get with the file name, destination '+
        'directory and callback', function() {
       var location = 'test/';
-      stub(operations, 'toDownloadFormat').returns('test/test.zip');
 
-      operations.download(location, callback);
+      operations.download(location, false, callback);
 
       operations.watchUpload.args[0][0]();
 
-      calledOnceWith(operations.ftp.get, '/complete/test/test.zip', 'test/test.zip', callback);
+      calledOnceWith(operations.ftp.get, '/complete/' + location + 'test.zip', 'test/test.zip');
+    });
+
+    it('should call the callback with the sent in error if there was one or not removeAfter for ' +
+       'that function', function() {
+      operations.download('', false, callback);
+      operations.watchUpload.args[0][0]();
+      operations.ftp.get.args[0][2]('An Error');
+
+      calledOnceWith(callback, 'An Error');
+
+      operations.download('', false, callback);
+      operations.watchUpload.args[0][0]();
+      operations.ftp.get.args[0][2]();
+
+      expect(callback.calledTwice).to.be.true
+    });
+
+    it('should call ftp\'s remove with the callback if there was no error and !!removeAfter for ' +
+       'that function', function() {
+      stub(operations, 'remove');
+
+      operations.download('', true, callback);
+      operations.watchUpload.args[0][0]();
+      operations.ftp.get.args[0][2]();
+
+      calledOnceWith(operations.remove, callback);
     });
   });
+
+  describe('remove', function() {
+    it('should call ftp raw\'s dele with the sent in callback and result file name', function() {
+      var callback = stub();
+      operations.uploadFileName = 'test.csv'
+
+      operations.remove(callback);
+
+      calledOnceWith(operations.ftp.raw.dele, '/complete/test.zip', callback);
+    });
+  })
 
   describe('quit', function() {
     it('should call ftp raw\'s quit with the sent in callback', function() {

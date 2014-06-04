@@ -23,7 +23,8 @@ var argv = require('yargs')
     poll: 'The number of seconds to poll for (default 300)',
     host: 'The host to connect to (default localhost)',
     port: 'The port to connect to (default 21)',
-    singleFile: 'Whether to run in single file mode (defaults to false)'
+    singleFile: 'Whether to run in single file mode (defaults to false)',
+    remove: 'Remove the corresponding results file of the uploaded file (defaults to false)'
   })
   .argv;
 
@@ -44,11 +45,15 @@ operations.upload(argv.f, argv.singleFile, function(err) {
   }
   console.log(argv.f, 'was uploaded.');
 
-  operations.download(argv.l, function(err) {
+  operations.download(argv.l, argv.remove, function(err) {
     if (err) {
       throw err;
     }
     console.log('Downloaded into', argv.l + argv.f);
+
+    if (argv.remove){
+      console.log('Also, removed', argv.f + '\'s result file from the server.');
+    }
 
     // Always close the FTP connection properly once done with it.
     operations.quit(function(err) {
