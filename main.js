@@ -24,7 +24,8 @@ var argv = require('yargs')
     host: 'The host to connect to (default localhost)',
     port: 'The port to connect to (default 21)',
     singleFile: 'Whether to run in single file mode (defaults to false)',
-    remove: 'Remove the corresponding results file of the uploaded file (defaults to false)'
+    remove: 'Remove the corresponding results file of the uploaded file (defaults to false)',
+    protocol: 'Which type of protocol to use (defaults to http)'
   })
   .argv;
 
@@ -37,6 +38,7 @@ var operations = new Operations({
     host: argv.host,
     port: argv.port,
     polling: argv.poll,
+    protocol: argv.protocol
   }).init();
 
 operations.upload(argv.f, argv.singleFile, function(err) {

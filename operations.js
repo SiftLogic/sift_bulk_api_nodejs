@@ -1,4 +1,5 @@
 var JSFtp = require('jsftp');
+var FtpOperations = require('./ftpOperations');
 
 /** 
  * Contains all the operations to upload, poll and download files. The constructor adds connection
@@ -12,6 +13,7 @@ var JSFtp = require('jsftp');
  * @param {string=} [opts.host="localhost"] The host to connect to.
  * @param {string=} [opts.port="21"] The port to connect to. Defaults to 21 if falsey.
  * @param {string=} [opts.polling="300"] Poll every polling seconds. 300 = 5 minutes.
+ * @param {string=} [opts.protocol="http"] What protocol to use to transfer data. Defaults to http.
  * 
  * @returns {Operations} Instantiated version of the options class.
  */
@@ -23,28 +25,37 @@ module.exports = function(opts) {
     password: opts.password,
     host: opts.host || 'localhost',
     port: opts.port || 21,
+    protocol: opts.protocol || 'http',
 
     uploadFileName: null,// Set on upload
-    JSFtp: JSFtp,// Make testing what is sent to this possible
+    FtpOperations: FtpOperations,// Make testing what is sent to this possible
     ftp: null,
 
     POLL_EVERY: (opts.polling || 300) * 1000// convert seconds to milliseconds
   };
 
+  // Throwing readable errors for the protocol type
+  if (self.protocol !== 'http' && self.protocol !== 'ftp'){
+    throw('Error: The ' + self.protocol + ' protocol is not supported.');
+  }
+
   /**
    * @description
-   * Initializes JSFtp in debug mode with the connection options (username, key, host port).
+   * Initializes the connection with the connection options (username, key, host port).
    *
    * @returns {Operations} The same instantiated value that the constructor returns.
    */
   self.init = function() {
-    self.ftp = new self.JSFtp({
+    self.ftpOperations = self.FtpOperations();
+    self.ftpOperations.init({
       host: self.host,
       port: self.port,
-      user:  self.username,
-      pass: self.password,
-      debugMode: true
+      username:  self.username,
+      password: self.password
     });
+
+    // Hack for now for easy testing
+    self.ftp = self.ftpOperations.ftp;
 
     return self;
   };
@@ -110,12 +121,17 @@ module.exports = function(opts) {
   self.reConnect = function() {
     self.ftp.destroy();
 
-    self.ftp = new self.JSFtp({
+    self.ftpOperations = self.FtpOperations();
+    self.ftpOperations.init({
       host: self.host,
       port: self.port,
-      user: self.username,
-      pass: self.password
+      username:  self.username,
+      password: self.password
     });
+
+    // Hack for now for easy testing
+    self.ftp = self.ftpOperations.ftp;
+    self.ftp.setDebugMode(false);
   };
 
   /**
