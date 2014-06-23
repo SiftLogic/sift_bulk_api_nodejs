@@ -49,7 +49,7 @@ operations.upload(argv.f, argv.singleFile, function(err) {
     if (err) {
       throw err;
     }
-    console.log('Downloaded into', argv.l + argv.f);
+    console.log('Downloaded into', argv.l + '/');
 
     if (argv.remove){
       console.log('Also, removed', argv.f + '\'s result file from the server.');

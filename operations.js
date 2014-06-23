@@ -145,6 +145,11 @@ module.exports = function(opts) {
     var type = (singleFile) ? 'default' : 'splitfile';
     var serverLocation ='/import_' + self.username + '_'+type+'_config/' +filename.split('/').pop();
     self.ftp.put(filename, serverLocation, function(err) {
+      // Make the message more intuitive, this could be an authentication error.
+      if (err && ((err + '').toLowerCase() + '').indexOf('bad passive host/port') > -1){
+        err = 'Error: An incorrect host, port, username, and/or password was entered';
+      }
+
       if (err){
         callback(err);
       }

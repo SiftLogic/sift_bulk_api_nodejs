@@ -173,6 +173,16 @@ describe('Operations', function() {
       calledOnceWith(callback, 'An error');
     });
 
+    it('should rewrite the message when "bad passive host/port" error occurs', function() { 
+      var filename = 'test.csv';
+
+      operations.upload(filename, true, callback);
+      operations.ftp.put.args[0][2]('Error: bad Passive host/port');// Capital P is intentional
+
+      message = 'Error: An incorrect host, port, username, and/or password was entered';
+      calledOnceWith(callback, message);
+    });
+
     it('should watch jsftp_debug calling the callback only upon getting a file upload message and '+
        'set the uploadFileName',
     function() {
@@ -199,7 +209,7 @@ describe('Operations', function() {
       expect(operations.ftp.events + '').to.equal('function (){}');// V8 only test
     });
 
-    it('should call the callback with the error text when the code 550', function() {
+    it('should call the callback with the error text when the code is 550', function() {
       operations.upload('', null, callback);
 
       var text = '550 Insufficient credits (Upload ID: 5c835271b08622f30a125a421c8da0bf)';
