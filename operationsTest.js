@@ -25,21 +25,13 @@ describe('Operations', function() {
 
     stub(operations, 'FtpOperations').returns({
       init: stub(),
-      on: stub(),
-      get: stub(),
-      put: stub(),
-      list: stub(),
-      destroy: stub(),
-      setDebugMode: stub(),
-
-      raw: {
-        dele: stub(),
-        quit: stub()
-      },
-
-      socket: {
-        writable: true
-      }
+      upload: stub(),
+      download: stub(),
+      remove: stub(),
+      quit: stub()
+    });
+    stub(operations, 'HttpOperations').returns({
+      init: stub()
     });
     operationsFromInit = operations.init();
   });
@@ -51,18 +43,24 @@ describe('Operations', function() {
     expect(_stub.calledWith.apply(_stub, args)).to.be.true;
   };
 
+  var ftpModeInit = function() {
+    operations.setProtocol('ftp');
+    operationsFromInit = operations.init();
+  }
+
   it('should set the options, JSFtp from instantiation', function() {
     operations = new Operations({
       username: username,
-      password: password
+      password: password,
+      port: 80
     });
 
     expect(operations.username).to.equal(username);
     expect(operations.password).to.equal(password);
-    expect(operations.port).to.equal(21);
+    expect(operations.port).to.equal(80);
     expect(operations.host).to.equal('localhost');
     expect(operations.FtpOperations).to.deep.equal(FtpOperations);
-    expect(operations.protocol).to.equal('http');
+    expect(operations.getProtocol()).to.equal('http');
 
     expect(operations.uploadFileName).to.be.null;
   });
@@ -96,27 +94,27 @@ describe('Operations', function() {
       protocol: 'ftp'
     });
 
-    expect(operations.protocol).to.equal('ftp');
+    expect(operations.getProtocol()).to.equal('ftp');
   });
-
-  it('should throw an error when an unsupported protocol is used', function() {
-    expect(function() {
-      operations = new Operations({
-        username: username,
-        password: password,
-        protocol: 'T.120'
-      });
-    }).to.throw('Error: The T.120 protocol is not supported.');
-  });
-
 
   describe('init', function() {
     it('should return the main object', function() {
       expect(operationsFromInit).to.deep.equal(operations);
     });
 
-    it('should initialize the ftp mode', function() {
+    it('should initialize the ftp operations when in FTP mode', function() {
+      ftpModeInit();
+
       calledOnceWith(operations.ftpOperations.init, {
+        host: operations.host,
+        port: operations.port,
+        username: operations.username,
+        password: operations.password
+      });
+    });
+
+    it('should initialize the http operations when in FTP mode', function() {
+      calledOnceWith(operations.httpOperations.init, {
         host: operations.host,
         port: operations.port,
         username: operations.username,
@@ -126,7 +124,8 @@ describe('Operations', function() {
   });
 
   describe('upload', function() {
-    it('should call the ftp upload with the sent in args', function() {
+    it('should call the ftp upload with the sent in args and user when in ftp mode', function() {
+      ftpModeInit();
       operations.ftpOperations.upload = stub();
       var callback = stub();
 
@@ -134,10 +133,20 @@ describe('Operations', function() {
 
       calledOnceWith(operations.ftpOperations.upload, operations.username,'test.csv',true,callback);
     });
+
+    it('should call the http upload with the sent in args when in http mode', function() {
+      operations.httpOperations.upload = stub();
+      var callback = stub();
+
+      operations.upload('test.csv', true, callback);
+
+      calledOnceWith(operations.httpOperations.upload, 'test.csv', true, callback);
+    });
   });
 
   describe('download', function() {
     it('should call the ftp download with the sent in args', function() {
+      ftpModeInit();
       operations.ftpOperations.download = stub();
       var callback = stub();
 
@@ -150,6 +159,7 @@ describe('Operations', function() {
 
   describe('remove', function() {
     it('should call the ftp remove with the sent in callback', function() {
+      ftpModeInit();
       operations.ftpOperations.remove = stub();
       var callback = stub();
 
@@ -161,6 +171,7 @@ describe('Operations', function() {
 
   describe('quit', function() {
     it('should call the ftp quit with the sent in callback', function() {
+      ftpModeInit();
       operations.ftpOperations.quit = stub();
       var callback = stub();
 
@@ -168,5 +179,13 @@ describe('Operations', function() {
 
       calledOnceWith(operations.ftpOperations.quit, callback);
     });
+  });
+
+  describe('setProtocol', function() {
+      it('should throw an error when an unsupported protocol is used', function() {
+        expect(function() {
+          operations.setProtocol('T.120');
+        }).to.throw('Error: The T.120 protocol is not supported.');
+      });
   });
 });

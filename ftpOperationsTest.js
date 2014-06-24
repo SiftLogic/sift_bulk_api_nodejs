@@ -86,6 +86,16 @@ describe('FtpOperations', function() {
       });
     });
 
+    it('should set the port to 21 when it is not specified', function() {
+      ftpOperations.init({
+        username: username,
+        password: password,
+        host: host
+      });
+
+      expect(ftpOperations.JSFtp.args[1][0].port).to.equal(21);
+    });
+
     it('should return the newly created ftp object', function() {
       expect(genericInit()).to.deep.equal(ftpOperations.ftp);
     });
@@ -293,7 +303,7 @@ describe('FtpOperations', function() {
 
         clock.timeouts[1].func();
 
-        calledOnceWith(ftpOperations.watchUpload, callback);
+        calledOnceWith(ftpOperations.watchUpload, 100, callback);
         expect(ftpOperations.reConnect.calledOnce).to.be.true;
       });
     });

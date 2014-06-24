@@ -5,7 +5,7 @@ var JSFtp = require('jsftp');
  * @class FtpOperations
  * @constructor
  *
- * @returns {Operations} Instantiated version of this class.
+ * @returns {FtpOperations} Instantiated version of this class.
  */
 
 module.exports = function() {
@@ -18,10 +18,12 @@ module.exports = function() {
    * @description
    * Setups the ftp connection.
    * 
-   * @param {Object} Has connection information.(username, key, host, port).
+   * @param {Object} Has connection information.(username, key, host, port). The port is 21 by
+   *                 default.
    **/
   self.init = function init(opts) {
     opts = opts || init.opts;
+    opts.port = opts.port || 21;
 
     self.ftp = new self.JSFtp({
       host: opts.host,
