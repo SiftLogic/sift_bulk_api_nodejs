@@ -54,84 +54,7 @@ module.exports = function(opts) {
       password: self.password
     });
 
-    // Hack for now for easy testing
-    self.ftp = self.ftpOperations.ftp;
-
     return self;
-  };
-
-  /**
-   * @description
-   * Retrieves the upload file name and transforms it to the download one. 
-   *
-   * @param {string} filename The filename to convert.
-   *
-   * @returns {string} The current download name of the current upload.
-   */
-  self.toDownloadFormat = function(filename) {
-    if (!filename){
-      return filename;
-    }
-
-    return filename.replace('source_', 'archive_')// Replace the first only
-                   .replace(new RegExp('.csv$'), '.zip')
-                   .replace(new RegExp('.txt$'), '.zip');
-  };
-
-  /**
-   * @description
-   * Calls the callback once the last uploaded file (uploadFileName) has been loaded or there is 
-   * an error. Reconnects for every request to deal with the lost connections.
-   *
-   * @param {function(err="")} callback Called when the function completes or there is an error.
-   */
-  self.watchUpload = function(callback) {
-    // Stop the earlier jsftp_debug listener, it interferes with jsftp's libraries listing operation
-    self.ftp.setDebugMode(false);
-
-    if (self.ftp.socket.writable){
-      self.ftp.list('/complete', function(err, res) {
-        if (err){
-          callback(err);
-        }
-
-        var formatted = self.toDownloadFormat(self.uploadFileName);
-        if (res && res.indexOf(formatted) > -1){
-          console.log(formatted, 'found.');
-
-          callback();
-        } else {
-          console.log('Waiting for results file', formatted, '...');
-
-          setTimeout(function() {
-            self.reConnect();
-            self.watchUpload(callback);
-          }, self.POLL_EVERY);
-        }
-      });
-    } else {
-      self.reConnect();
-    }
-  };
-
-  /**
-   * @description
-   * Recreates a connection by using the sent in connection info (username, key, host port).
-   */
-  self.reConnect = function() {
-    self.ftp.destroy();
-
-    self.ftpOperations = self.FtpOperations();
-    self.ftpOperations.init({
-      host: self.host,
-      port: self.port,
-      username:  self.username,
-      password: self.password
-    });
-
-    // Hack for now for easy testing
-    self.ftp = self.ftpOperations.ftp;
-    self.ftp.setDebugMode(false);
   };
 
   /**
@@ -143,60 +66,19 @@ module.exports = function(opts) {
    * @param {function(err="")} callback Called when the function completes or there is an error.
    */
   self.upload = function(filename, singleFile, callback) {
-    self.ftp.on('jsftp_debug', function(eventType, data) {
-      if (eventType === 'response' && data){
-        // File was successfully uploaded
-        if (data.code === 226){
-          self.ftp.events = function(){};
-          self.uploadFileName = data.text.split('; ').slice(-1)[0].trim();
-
-          callback();
-        // A error with the file or backend specifically. e.g. Not enough credits
-        } else if (data.code === 550){
-          callback(data.text);
-        }
-      }
-    });
-
-    var type = (singleFile) ? 'default' : 'splitfile';
-    var serverLocation ='/import_' + self.username + '_'+type+'_config/' +filename.split('/').pop();
-    self.ftp.put(filename, serverLocation, function(err) {
-      // Make the message more intuitive, this could be an authentication error.
-      if (err && ((err + '').toLowerCase() + '').indexOf('bad passive host/port') > -1){
-        err = 'Error: An incorrect host, port, username, and/or password was entered';
-      }
-
-      if (err){
-        callback(err);
-      }
-    });
+    self.ftpOperations.upload(self.username, filename, singleFile, callback);
   };
 
   /**
    * @description
-   * Polls until the results can be downloaded. Uses the last uploaded file (self. uploadFileName) 
-   * to do this.
+   * Downloads the last uploaded file (self.uploadFileName).
    *
    * @param {string} location The location to download the file to.
    * @param {boolean} [removeAfter=false] If the results file should be removed after downloading.
    * @param {function(err="")} callback Called when the function completes or there is an error.
    */
   self.download = function(location, removeAfter, callback) {
-    self.watchUpload(function(err) {
-      if (err){
-        return callback(err);
-      }
-      location = location.replace(new RegExp('\/$'), '');// Remove trailing slash if present
-
-      var filename = self.toDownloadFormat(self.uploadFileName);
-      self.ftp.get('/complete/' + filename, location + '/' + filename.split('/').pop(), function(err) {
-        if (err || !removeAfter){
-          return callback(err);
-        }
-
-        self.remove(callback);
-      });
-    });
+    self.ftpOperations.download(location, self.POLL_EVERY, removeAfter, callback);
   };
 
   /**
@@ -206,17 +88,17 @@ module.exports = function(opts) {
    * @param {function(err="")} callback Called when the function completes or there is an error.
    */
   self.remove = function(callback) {
-    self.ftp.raw.dele('/complete/' + self.toDownloadFormat(self.uploadFileName), callback);
+    self.ftpOperations.remove(callback);
   };
 
   /**
    * @description
-   * Closes the ftp connection, should be done after each download
+   * Quits the connection.
    *
    * @param {function(err="")} callback Called when the function completes or there is an error.
    */
   self.quit = function(callback) {
-    self.ftp.raw.quit(callback);
+    self.ftpOperations.quit(callback);
   };
 
   return self;
