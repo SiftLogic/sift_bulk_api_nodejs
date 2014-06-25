@@ -170,7 +170,7 @@ describe('Operations', function() {
   });
 
   describe('remove', function() {
-    it('should call the ftp remove with the sent in callback', function() {
+    it('should call the ftp remove with the sent in callback when in ftp mode', function() {
       ftpModeInit();
       operations.ftpOperations.remove = stub();
       var callback = stub();
@@ -178,6 +178,15 @@ describe('Operations', function() {
       operations.remove(callback);
 
       calledOnceWith(operations.ftpOperations.remove, callback);
+    });
+
+    it('should call the http remove with the sent in callback in http mode', function() {
+      operations.httpOperations.remove = stub();
+      var callback = stub();
+
+      operations.remove(callback);
+
+      calledOnceWith(operations.httpOperations.remove, callback);
     });
   });
 

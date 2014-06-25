@@ -63,6 +63,7 @@ describe('FtpOperations', function() {
     ftpOperations = new FtpOperations();
 
     expect(ftpOperations.ftp).to.equal(null);
+    expect(ftpOperations.uploadFileName).to.equal(null);
   });
 
   describe('init', function() {

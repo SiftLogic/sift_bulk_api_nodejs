@@ -65,7 +65,7 @@ module.exports = function(opts) {
         username:  self.username,
         password: self.password
       });
-    } else{
+    } else {
       self.httpOperations = self.HttpOperations();
       self.httpOperations.init({
         host: self.host,
@@ -117,7 +117,11 @@ module.exports = function(opts) {
    * @param {function(err="")} callback Called when the function completes or there is an error.
    */
   self.remove = function(callback) {
-    self.ftpOperations.remove(callback);
+    if (self.getProtocol() === 'ftp') {
+      self.ftpOperations.remove(callback);
+    } else {
+      self.httpOperations.remove(callback);
+    }
   };
 
   /**

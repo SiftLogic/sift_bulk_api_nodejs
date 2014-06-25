@@ -9,6 +9,7 @@ var sinon = require('sinon'),
     expect = chai.expect;
 
 var fs = require('fs'),
+    http = require('http'),
     rest = require('restler'),
     HttpOperations = require('./httpOperations');
 
@@ -45,6 +46,7 @@ describe('HttpOperations', function() {
     expect(httpOperations.statusUrl).to.equal(null);
     expect(httpOperations.downloadUrl).to.equal(null);
     expect(httpOperations.apikey).to.equal(null);
+    expect(httpOperations.downloadError).to.equal(null);
   });
 
   describe('init', function() {
@@ -237,6 +239,199 @@ describe('HttpOperations', function() {
 
     it('should call the callback with the error code on an unsuccessful request', function() {
       httpOperations.watchUpload(100, callback);
+      onError.args[0][1]({
+        code: 'ECONNREFUSED'
+      });
+
+      calledOnceWith(callback, 'ECONNREFUSED');
+    });
+  });
+
+  describe('download', function() {
+    var callback, onError, onFinish, onClose;
+    beforeEach(function() {
+      callback = stub();
+      onError = stub();
+      onFinish = stub();
+      onClose = stub();
+
+      stub(httpOperations, 'watchUpload');
+      stub(httpOperations, 'handleServerDownloadError');
+      stub(httpOperations, 'remove');
+      stub(http, 'get').returns({on: onError});
+      stub(fs, 'createWriteStream').returns({on: onFinish, close: onClose});
+
+      httpOperations.statusUrl = 'http://localhost:80/status/test_file';
+      httpOperations.downloadUrl = 'http://localhost:80/test_file/download';
+
+      httpOperations.download('/tmp', 100, false, callback);
+    });
+
+    afterEach(function() {
+      http.get.restore();
+      fs.createWriteStream.restore();
+    });
+
+    it('should call watchUpload with the polling time', function() {
+      calledOnceWith(httpOperations.watchUpload, 100);
+    });
+
+    it('should call callback with an error when watchUpload has one', function() {
+      httpOperations.download('/tmp', 100, false, callback);
+      httpOperations.watchUpload.args[0][1]('An Error');
+
+      calledOnceWith(callback, 'An Error');
+    });
+
+    it('should call http get with the right download info', function() {
+      httpOperations.apikey = '12345';
+
+      httpOperations.watchUpload.args[0][1]();
+
+      calledOnceWith(http.get, {
+        hostname: 'localhost',
+        port: '80',
+        path: '/test_file/download',
+        headers: {
+          'x-authorization': '12345'
+        }
+      });
+    });
+
+    it('should call handleServerDownloadError with the response from the get response', function() {
+      httpOperations.watchUpload.args[0][1]();
+
+      var pipe = stub();
+      http.get.args[0][1]({pipe: pipe});
+
+      calledOnceWith(httpOperations.handleServerDownloadError, {pipe: pipe});
+    });
+
+    it('should pipe the file to the response and an error to the callback if needed', function() {
+      httpOperations.watchUpload.args[0][1]();
+      httpOperations.downloadError = 'An Error';
+
+      var pipe = stub();
+      http.get.args[0][1]({pipe: pipe});
+
+      calledOnceWith(fs.createWriteStream, '/tmp/test_file.zip');
+      calledOnceWith(pipe, {on: onFinish, close: onClose});
+      calledOnceWith(onFinish, 'finish');
+
+      onFinish.args[0][1]();
+      calledOnceWith(onClose);
+      
+      onClose.args[0][0]();
+      calledOnceWith(callback, 'An Error');
+      expect(httpOperations.remove.calledOnce).to.be.false;
+    });
+
+    it('should call remove if removeAfter was specified and there was no download err', function() {
+      httpOperations.download('/tmp', 100, true, callback);
+      httpOperations.watchUpload.args[1][1]();
+      http.get.args[0][1]({pipe: stub()});
+      onFinish.args[0][1]();
+      onClose.args[0][0]();
+
+      calledOnceWith(httpOperations.remove, callback);
+    });
+
+    it('should unlink the file and call the callback with the error on a connect err', function() {
+      stub(fs, 'unlink');
+      httpOperations.watchUpload.args[0][1]();
+
+      calledOnceWith(onError, 'error');
+      onError.args[0][1]('An Error');
+
+      calledOnceWith(fs.unlink, '/tmp/test_file.zip');
+      calledOnceWith(callback, 'An Error');
+
+      fs.unlink.restore();
+    });
+  });
+
+  describe('handleServerDownloadError', function() {
+    var response;
+    beforeEach(function() {
+      response = {
+        on: stub()
+      }
+    })
+
+    it('should set downloadError to null', function() {
+      httpOperations.handleServerDownloadError(response);
+
+      expect(httpOperations.downloadError).to.equal(null);
+    });
+
+    it('should not set downloadError if the chunk is greater than 200', function() {
+      httpOperations.handleServerDownloadError(response);
+
+      calledOnceWith(response.on, 'data');
+      response.on.args[0][1](Array(201).join('a'));
+
+      expect(httpOperations.downloadError).to.equal(null);
+    });
+
+    it('should call set downloadError and set a parse error with a unparsable respons', function() {
+      httpOperations.handleServerDownloadError(response);
+
+      calledOnceWith(response.on, 'data');
+      response.on.args[0][1](Array(199).join('a'));
+
+      expect(httpOperations.downloadError + '').to.equal('SyntaxError: Unexpected token a');
+    });
+
+    it('should call set downloadError with the error when the response is parsable', function() {
+      httpOperations.handleServerDownloadError(response);
+
+      calledOnceWith(response.on, 'data');
+      response.on.args[0][1]('{"error": "error", "msg": "An Error"}');
+
+      expect(httpOperations.downloadError).to.equal('An Error');
+    });
+  });
+
+  describe('remove', function() {
+    var callback, onSuccess, onError;
+    beforeEach(function() {
+      callback = stub();
+
+      onError = stub();
+      onSuccess = stub().returns({on: onError});
+
+      stub(rest, 'del').returns({on: onSuccess});
+    });
+
+    afterEach(function() {
+      rest.del.restore();
+    });
+
+    it('should call restlers delete with the right connection info', function() {
+      httpOperations.apikey = '12345';
+      httpOperations.statusUrl = 'http://localhost:82/status';
+
+      httpOperations.remove(callback);
+
+      calledOnceWith(rest.del, 'http://localhost:82/status', {
+        headers: {
+          'x-authorization': '12345'
+        }
+      });
+    });
+
+    it('should call the callback with error message or nothing on a successfl request', function() {
+      httpOperations.remove(callback);
+      onSuccess.args[0][1]({msg: 'An Error'});
+
+      calledOnceWith(callback, 'An Error');
+
+      onSuccess.args[0][1]();
+      expect(callback.args[1][0]).to.be.undefined;
+    });
+
+    it('should call the callback with the error code on an unsuccessful request', function() {
+      httpOperations.remove(callback);
       onError.args[0][1]({
         code: 'ECONNREFUSED'
       });

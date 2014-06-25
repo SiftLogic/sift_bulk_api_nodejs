@@ -11,7 +11,8 @@ var JSFtp = require('jsftp');
 module.exports = function() {
   var self = {
     JSFtp: JSFtp,// Make testing what is sent to this possible
-    ftp: null
+    ftp: null,
+    uploadFileName: null
   };
 
   /**

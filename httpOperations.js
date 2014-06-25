@@ -1,5 +1,8 @@
 var fs = require('fs'),
-    rest = require('restler');
+    rest = require('restler'),
+    http = require('http'),
+    url = require('url');
+
 /** 
  * Handles HTTP based operations across the system.
  * @class FtpOperations
@@ -14,7 +17,8 @@ module.exports = function() {
     baseUrl: null,// Set on init
     statusUrl: null,// Set on upload
     downloadUrl: null,// Set on a successful finish of polling for watchUpload
-    apikey: null
+    apikey: null,
+    downloadError: null,// If any download error occurs it will be stored here
   };
 
   /**
@@ -105,6 +109,7 @@ module.exports = function() {
   /**
    * @description
    * Polls until the results can be downloaded. Uses the last uploaded status url (self.statusUrl).
+   * The downloaded file name is just <job name>.zip .
    *
    * @param {string} location The path and file to download to.
    * @param pollEvery The number of milleseconds to poll for.
@@ -116,21 +121,80 @@ module.exports = function() {
       if (err){
         return callback(err);
       }
+
       location = location.replace(new RegExp('\/$'), '');// Remove trailing slash if present
+      var newFile = self.statusUrl.split('/').pop(),
+          fullLocation = location + '/' + newFile + '.zip',
+          urlObj = url.parse(self.downloadUrl);
 
-      console.log(self.downloadUrl, 'was found');
-
-
-      rest.get(self.downloadUrl, {
+      http.get({
+        hostname: urlObj.hostname,
+        port: urlObj.port,
+        path: urlObj.path,
         headers: {
           'x-authorization': self.apikey
         }
-      }).on('success', function(data) {
-        console.log(data);
-        return callback();
-      }).on('error', function(error) {
-        return callback(error.code);
+      }, function(response) {
+        self.handleServerDownloadError(response);
+
+        var file = fs.createWriteStream(fullLocation);
+        response.pipe(file);
+        file.on('finish', function() {
+          file.close(function() {
+            if (!self.downloadError && removeAfter) {
+              return self.remove(callback);
+            }
+            return callback(self.downloadError);
+          });
+        });
+      }).on('error', function(err) {
+        fs.unlink(fullLocation);
+        callback(err);
       });
+    });
+  };
+
+  /**
+   * @description
+   * Handles errors sent back from the server on file download by setting downloadError. These will
+   * all be passed back as JSON, instead of a stream so handling them is non trivial.
+   *
+   * @param {response} response The response object returned from an http request.
+   */
+  self.handleServerDownloadError = function(response) {
+    // If this is not done, one download error could stop all subsequent requests using this object.
+    self.downloadError = null;
+
+    response.on('data', function (chunk) {
+      // Make sure that only small amounts of data will be parsed
+      if(chunk.length < 200){
+        try {
+          var parsed = JSON.parse(chunk);
+          if (parsed.error){
+            self.downloadError = parsed.msg;
+          }
+        } catch(e){
+          self.downloadError = e;
+        }
+      }
+    });
+  };
+
+ /**
+   * @description
+   * Removes the last uploaded file from the server.
+   *
+   * @param {function(err="")} callback Called when the function completes or there is an error.
+   */
+  self.remove = function(callback) {
+    rest.del(self.statusUrl, {
+      headers: {
+        'x-authorization': self.apikey
+      }
+    }).on('success', function(data) {
+      return callback(data ? data.msg : undefined);// msg only occurs on error
+    }).on('error', function(error) {
+      return callback(error.code);
     });
   };
 
