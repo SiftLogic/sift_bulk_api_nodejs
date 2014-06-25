@@ -37,18 +37,20 @@ describe('HttpOperations', function() {
     expect(_stub.calledWith.apply(_stub, args)).to.be.true;
   };
 
-  it('should initialize the http libary and location to null', function() {
+  it('should initialize the various object wide variables to null', function() {
     httpOperations = new HttpOperations();
 
     expect(httpOperations.http).to.equal(null);
-    expect(httpOperations.location).to.equal(null);
+    expect(httpOperations.baseUrl).to.equal(null);
+    expect(httpOperations.statusUrl).to.equal(null);
+    expect(httpOperations.downloadUrl).to.equal(null);
     expect(httpOperations.apikey).to.equal(null);
   });
 
   describe('init', function() {
-    it('should set the location and apikey', function() {
+    it('should set the baseUrl and apikey', function() {
       genericInit();
-      expect(httpOperations.location).to.equal('http://' + host + ':' + port + '/api/live/bulk/');
+      expect(httpOperations.baseUrl).to.equal('http://' + host + ':' + port + '/api/live/bulk/');
       expect(httpOperations.apikey).to.equal(password);
     });
 
@@ -58,7 +60,7 @@ describe('HttpOperations', function() {
         password: password,
       });
 
-      expect(httpOperations.location).to.equal('http://' + host + ':80/api/live/bulk/');
+      expect(httpOperations.baseUrl).to.equal('http://' + host + ':80/api/live/bulk/');
     });
 
     it('should return the newly created http object', function() {
@@ -79,7 +81,7 @@ describe('HttpOperations', function() {
       stub(rest, 'file').returns(fileInfo);
     });
 
-    afterEach(function(){
+    afterEach(function() {
       fs.stat.restore();
       rest.post.restore();
       rest.file.restore();
@@ -96,7 +98,7 @@ describe('HttpOperations', function() {
     });
 
     it('should call restlers post with the correct configuration', function() {
-      httpOperations.location = 'http://localhost:80';
+      httpOperations.baseUrl = 'http://localhost:80';
       httpOperations.apikey = '12345';
 
       httpOperations.upload('test.csv', false, callback);
@@ -131,25 +133,110 @@ describe('HttpOperations', function() {
       fs.stat.args[0][1](null, 2000);
       onSuccess.args[0][1]({
         status: 'error',
-        error: 'An Error'
+        msg: 'An Error'
       });
 
       calledOnceWith(callback, 'An Error');
     });
 
-    it('should call the callback with nothing on a successful non error request', function() {
+    it('should call the callback with nothing on a successful non error request and set the status'+
+       ' url', function() {
       httpOperations.upload('', true, callback);
       fs.stat.args[0][1](null, 2000);
       onSuccess.args[0][1]({
-        status: 'success'
+        status: 'success',
+        status_url: 'http://localhost:82/status'
       });
 
+      expect(httpOperations.statusUrl).to.equal('http://localhost:82/status');
       calledOnceWith(callback, undefined);
     });
 
     it('should call the callback with the error code on an unsuccessful request', function() {
       httpOperations.upload('', true, callback);
       fs.stat.args[0][1](null, 2000);
+      onError.args[0][1]({
+        code: 'ECONNREFUSED'
+      });
+
+      calledOnceWith(callback, 'ECONNREFUSED');
+    });
+  });
+
+  describe('watchUpload', function() {
+    var callback, onSuccess, onError;
+    beforeEach(function() {
+      callback = stub();
+
+      onError = stub();
+      onSuccess = stub().returns({on: onError});
+
+      stub(rest, 'get').returns({on: onSuccess});
+    });
+
+    afterEach(function() {
+      rest.get.restore();
+    })
+
+    it('should call restlers get with the statusUrl and authorization header', function() {
+      httpOperations.statusUrl = 'http://localhost:82/status';
+      httpOperations.apikey = '12345';
+
+      httpOperations.watchUpload(100, callback);
+
+      calledOnceWith(rest.get, 'http://localhost:82/status', {
+        headers: {
+          'x-authorization': httpOperations.apikey
+        }
+      });
+    });
+
+    it('should call the callback with the error message when one occurs', function() {
+      httpOperations.watchUpload(100, callback);
+      onSuccess.args[0][1]({
+        status: 'error',
+        msg: 'An Error'
+      });
+
+      calledOnceWith(callback, 'An Error');
+    });
+
+    it('should recall the watchUpload after the poll time with the send in args and print a ' + 
+       'polling message', function() {
+      var clock = sinon.useFakeTimers();
+      stub(console, 'log');
+
+      httpOperations.watchUpload(100, callback);
+
+      stub(httpOperations, 'watchUpload');
+      onSuccess.args[0][1]({
+        status: 'active',
+        job: 'ajob_csv'
+      });
+
+      clock.timeouts[2].func();
+
+      expect(clock.timeouts[2].callAt).to.equal(100);
+      calledOnceWith(console.log, 'Waiting for the job', 'ajob_csv', '...');
+      calledOnceWith(httpOperations.watchUpload, 100, callback);
+
+      console.log.restore();
+    });
+
+    it('should call the callback with nothing and set the downloadUrl on a successful request ' +
+       'when the file is found', function() {
+      httpOperations.watchUpload(100, callback);
+      onSuccess.args[0][1]({
+        status: 'completed',
+        download_url: 'http://localhost:82/thejob/download'
+      });
+
+      expect(httpOperations.downloadUrl).to.equal('http://localhost:82/thejob/download');
+      calledOnceWith(callback, undefined);
+    });
+
+    it('should call the callback with the error code on an unsuccessful request', function() {
+      httpOperations.watchUpload(100, callback);
       onError.args[0][1]({
         code: 'ECONNREFUSED'
       });

@@ -145,15 +145,27 @@ describe('Operations', function() {
   });
 
   describe('download', function() {
+    var callback, poll;
+    beforeEach(function() {
+      callback = stub();
+      poll = operations.POLL_EVERY;
+    });
+
     it('should call the ftp download with the sent in args', function() {
       ftpModeInit();
       operations.ftpOperations.download = stub();
-      var callback = stub();
 
       operations.download('/complete', false, callback);
 
-      var poll = operations.POLL_EVERY;
       calledOnceWith(operations.ftpOperations.download, '/complete', poll, false, callback);
+    });
+
+    it('should call the http download with the sent in args', function() {
+      operations.httpOperations.download = stub();
+
+      operations.download('/complete', false, callback);
+
+      calledOnceWith(operations.httpOperations.download, '/complete', poll, false, callback);
     });
   });
 
@@ -178,6 +190,14 @@ describe('Operations', function() {
       operations.quit(callback);
 
       calledOnceWith(operations.ftpOperations.quit, callback);
+    });
+
+    it('should send back an unsupported error for the http protocol', function() {
+      var callback = stub();
+
+      operations.quit(callback);
+
+      calledOnceWith(callback, 'The http protocol does not support quit.');
     });
   });
 

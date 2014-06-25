@@ -47,21 +47,24 @@ operations.upload(argv.f, argv.singleFile, function(err) {
   }
   console.log(argv.f, 'was uploaded.');
 
-  // operations.download(argv.l, argv.remove, function(err) {
-  //   if (err) {
-  //     throw err;
-  //   }
-  //   console.log('Downloaded into', argv.l + '/');
+  operations.download(argv.l, argv.remove, function(err) {
+    if (err) {
+      throw err;
+    }
+    console.log('Downloaded into', argv.l + '/');
 
-  //   if (argv.remove){
-  //     console.log('Also, removed', argv.f + '\'s result file from the server.');
-  //   }
+    if (argv.remove){
+      console.log('Also, removed', argv.f + '\'s result file from the server.');
+    }
 
-  //   // Always close the FTP connection properly once done with it.
-  //   operations.quit(function(err) {
-  //     if (err) {
-  //       throw err;
-  //     }
-  //   });
-  // });
+    // Always close the FTP connection properly once done with it. Each http request is independent
+    // so they don't need to be closed.
+    if (argv.protocol === 'ftp'){
+      operations.quit(function(err) {
+        if (err) {
+          throw err;
+        }
+      });
+    }
+  });
 });

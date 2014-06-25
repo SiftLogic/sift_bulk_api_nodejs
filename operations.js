@@ -103,7 +103,11 @@ module.exports = function(opts) {
    * @param {function(err="")} callback Called when the function completes or there is an error.
    */
   self.download = function(location, removeAfter, callback) {
-    self.ftpOperations.download(location, self.POLL_EVERY, removeAfter, callback);
+    if (self.getProtocol() === 'ftp') {
+      self.ftpOperations.download(location, self.POLL_EVERY, removeAfter, callback);
+    } else {
+      self.httpOperations.download(location, self.POLL_EVERY, removeAfter, callback);
+    }
   };
 
   /**
@@ -123,9 +127,11 @@ module.exports = function(opts) {
    * @param {function(err="")} callback Called when the function completes or there is an error.
    */
   self.quit = function(callback) {
-    self.ftpOperations.quit(callback);
+    if (self.getProtocol() === 'ftp'){
+      return self.ftpOperations.quit(callback);
+    }
+    return callback('The ' + self.getProtocol() + ' protocol does not support quit.');
   };
-
 
   /**
    * @description
