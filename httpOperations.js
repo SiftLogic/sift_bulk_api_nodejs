@@ -40,7 +40,7 @@ module.exports = function() {
    * @description
    * Uploads the given file.
    *
-   * @param {string} filename The local file to upload.
+   * @param {string} filename The local file to upload. Absolute path must be used.
    * @param {boolean=}  singleFile Whether to upload in singleFile mode.
    * @param {function(err="")} callback Called when the function completes or there is an error.
    */
@@ -62,7 +62,7 @@ module.exports = function() {
         }
       // Need to handle connection and custom errors from the server.
       }).on('success', function(data) {
-        if(data.status === 'error'){
+        if(data && data.status === 'error'){
           return callback(data.msg);
         }
 
@@ -89,9 +89,9 @@ module.exports = function() {
           'x-authorization': self.apikey
         }
       }).on('success', function(data) {
-        if (data.status === 'error'){
+        if (data && data.status === 'error'){
           return callback(data.msg);
-        } else if (data.status === 'completed'){
+        } else if (data && data.status === 'completed'){
           self.downloadUrl = data.download_url;
 
           return callback();
@@ -114,7 +114,8 @@ module.exports = function() {
    * @param {string} location The path and file to download to.
    * @param pollEvery The number of milleseconds to poll for.
    * @param {boolean} [removeAfter=false] If the results file should be removed after downloading.
-   * @param {function(err="")} callback Called when the function completes or there is an error.
+   * @param {function(err="", downloadName)} callback Called when the function completes or there is
+   *                                                  an error. Also, gives downloadName on success.
    */
   self.download = function(location, pollEvery, removeAfter, callback) {
     self.watchUpload(pollEvery, function(err) {
@@ -142,9 +143,11 @@ module.exports = function() {
         file.on('finish', function() {
           file.close(function() {
             if (!self.downloadError && removeAfter) {
-              return self.remove(callback);
+              return self.remove(function(err) { 
+                callback(err, fullLocation); 
+              });
             }
-            return callback(self.downloadError);
+            return callback(self.downloadError, fullLocation);
           });
         });
       }).on('error', function(err) {
@@ -192,7 +195,10 @@ module.exports = function() {
         'x-authorization': self.apikey
       }
     }).on('success', function(data) {
-      return callback(data ? data.msg : undefined);// msg only occurs on error
+      if (data && data.error){
+        return callback(data.msg);
+      }
+      return callback();
     }).on('error', function(error) {
       return callback(error.code);
     });

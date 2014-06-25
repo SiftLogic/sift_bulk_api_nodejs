@@ -12,9 +12,9 @@
  **/
 var argv = require('yargs')
   .usage('Usage: $0 -f [file name] -l [download location] -u [username] -p [password]')
-  .example('$0 -f ../test.csv -l /tmp -u TestKey -p e261742d-fe2f-4569-95e6-312689d049 --poll 10', 
+  .example('$0 -f ../test.csv -l /tmp --u TestKey -p e261742d-fe2f-4569-95e6-312689d049 --poll 10', 
            'Upload test.csv, process it and download the results to /tmp, poll every 10s')
-  .demand(['f', 'l', 'u', 'p'])
+  .demand(['f', 'l', 'p'])
   .describe({
     f: 'The file path of the upload file',
     l: 'The location of where the results file should be placed',
@@ -47,11 +47,11 @@ operations.upload(argv.f, argv.singleFile, function(err) {
   }
   console.log(argv.f, 'was uploaded.');
 
-  operations.download(argv.l, argv.remove, function(err) {
+  operations.download(argv.l, argv.remove, function(err, downloadName) {
     if (err) {
       throw err;
     }
-    console.log('Downloaded into', argv.l + '/');
+    console.log('Downloaded into', downloadName);
 
     if (argv.remove){
       console.log('Also, removed', argv.f + '\'s result file from the server.');

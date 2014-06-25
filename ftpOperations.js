@@ -157,7 +157,8 @@ module.exports = function() {
    * @param {string} location The path and file to download to.
    * @param pollEvery The number of milleseconds to poll for.
    * @param {boolean} [removeAfter=false] If the results file should be removed after downloading.
-   * @param {function(err="")} callback Called when the function completes or there is an error.
+   * @param {function(err="", downloadName)} callback Called when the function completes or there is
+   *                                                  an error. Also, gives downloadName on success.
    */
   self.download = function(location, pollEvery, removeAfter, callback) {
     self.watchUpload(pollEvery, function(err) {
@@ -169,10 +170,12 @@ module.exports = function() {
       var filename = self.toDownloadFormat(self.uploadFileName);
       self.ftp.get('/complete/' + filename, location + '/' + filename.split('/').pop(), function(err) {
         if (err || !removeAfter){
-          return callback(err);
+          return callback(err,  location + '/' + filename);
         }
 
-        self.remove(callback);
+        self.remove(function(err) {
+          callback(err, location + '/' + filename);
+        });
       });
     });
   };

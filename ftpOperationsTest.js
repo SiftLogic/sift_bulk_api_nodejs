@@ -369,7 +369,10 @@ describe('FtpOperations', function() {
       ftpOperations.watchUpload.args[0][1]();
       ftpOperations.ftp.get.args[0][2]();
 
-      calledOnceWith(ftpOperations.remove, callback);
+      calledOnceWith(ftpOperations.remove);
+      ftpOperations.remove.args[0][0]('test');
+
+      calledOnceWith(callback, 'test', '/test/test.zip');
     });
   });
 

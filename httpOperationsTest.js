@@ -333,7 +333,10 @@ describe('HttpOperations', function() {
       onFinish.args[0][1]();
       onClose.args[0][0]();
 
-      calledOnceWith(httpOperations.remove, callback);
+      calledOnceWith(httpOperations.remove);
+      httpOperations.remove.args[0][0]('test');
+
+      calledOnceWith(callback, 'test', '/tmp/test_file.zip');
     });
 
     it('should unlink the file and call the callback with the error on a connect err', function() {
@@ -422,7 +425,10 @@ describe('HttpOperations', function() {
 
     it('should call the callback with error message or nothing on a successfl request', function() {
       httpOperations.remove(callback);
-      onSuccess.args[0][1]({msg: 'An Error'});
+      onSuccess.args[0][1]({
+        error: 'error',
+        msg: 'An Error'
+      });
 
       calledOnceWith(callback, 'An Error');
 

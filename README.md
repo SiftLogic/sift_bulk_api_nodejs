@@ -5,7 +5,7 @@ This demonstrates how to connect to the bulk server with Node.js. Currently, HTT
 have that you can try the main.js file for an upload demo. For example:
 <pre>
   <code>
-    ./main.js -f test.csv -l /tmp -u aUsername -p e261742d-fe2f-4569-95e6-312689d04903 --poll 10
+    ./main.js -f test.csv -l /tmp --u aUsername -p e261742d-fe2f-4569-95e6-312689d04903 --poll 10
   </code>
 </pre>
 The CLI is described in more detail with <code>./main.js</code>
