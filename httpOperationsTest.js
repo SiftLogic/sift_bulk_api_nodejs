@@ -70,22 +70,84 @@ describe('HttpOperations', function() {
     });
   });
 
+  describe('doCall', function() {
+    var methodCallback, onFirst, onSecond, callback, onSuccess, onError;
+    beforeEach(function() {
+      callback = stub();
+      onSecond = stub();
+      onFirst = stub().returns({on: onSecond});
+      methodCallback = stub().returns({on: onFirst});
+      onSuccess = stub();
+      onError = stub();
+    });
+
+    it('should call the method callback with the url and options combined with header', function() {
+      httpOperations.apikey = '12345';
+      var options = {
+        test: 'test'
+      }
+
+      httpOperations.doCall(methodCallback, 'http://localhost:80/test', options);
+
+      var combinedOptions = {
+        test: options.test,
+        headers: {
+          'x-authorization': '12345'
+        }
+      }
+      calledOnceWith(methodCallback, 'http://localhost:80/test', combinedOptions);
+    });
+
+    it('should call the callback with the prescibed error on a successful request', function() {
+      httpOperations.doCall(methodCallback, '', {}, null, null, callback);
+      onFirst.args[0][1]({
+        error: 'test',
+        msg: 'An Error'
+      });
+
+      calledOnceWith(callback, 'An Error');
+
+      callback.callCount = 0;
+      onFirst.args[0][1]({
+        status: 'error',
+        msg: 'An Error'
+      });
+
+      calledOnceWith(callback, 'An Error');
+    });
+
+    it('should call onSuccess with resp. on a successful request with no server error', function() {
+      httpOperations.doCall(methodCallback, '', {}, onSuccess, null, callback);
+      var data = {test: 'test'};
+      onFirst.args[0][1](data);
+
+      calledOnceWith(onSuccess, data);
+      expect(callback.called).to.be.false;
+    });
+
+    it('should call onError with response on an errored request', function() {
+      httpOperations.doCall(methodCallback, '', {}, null, onError, callback);
+      var data = {test: 'test'};
+      onSecond.args[0][1](data);
+
+      calledOnceWith(onError, data);
+      expect(callback.called).to.be.false;
+    });
+  });
+
   describe('upload', function() {
-    var callback, fileInfo, onSuccess, onError;
+    var callback, fileInfo;
     beforeEach(function() {
       fileInfo = 'testInfo';
-      onError = stub();
-      onSuccess = stub().returns({on: onError});
 
       callback = stub();
       stub(fs, 'stat');
-      stub(rest, 'post').returns({on: onSuccess});
+      stub(httpOperations, 'doCall');
       stub(rest, 'file').returns(fileInfo);
     });
 
     afterEach(function() {
       fs.stat.restore();
-      rest.post.restore();
       rest.file.restore();
     })
 
@@ -99,7 +161,7 @@ describe('HttpOperations', function() {
       calledOnceWith(callback, 'An Error');
     });
 
-    it('should call restlers post with the correct configuration', function() {
+    it('should doCall with the correct configuration', function() {
       httpOperations.baseUrl = 'http://localhost:80';
       httpOperations.apikey = '12345';
 
@@ -107,11 +169,7 @@ describe('HttpOperations', function() {
       fs.stat.args[0][1](null, {size: 2000});
 
       calledOnceWith(rest.file, 'test.csv', null, 2000);
-      calledOnceWith(rest.post, 'http://localhost:80', {
-        headers: {
-          'x-authorization': '12345'
-        },
-
+      calledOnceWith(httpOperations.doCall, rest.post, 'http://localhost:80', {
         multipart: true,
         data: {
           file: fileInfo,
@@ -120,32 +178,21 @@ describe('HttpOperations', function() {
       });
     });
 
-    it('should call restlers post with single when singleFile is true', function() {
+    it('should doCall with single when singleFile is true', function() {
       httpOperations.location = 'http://localhost:80';
       httpOperations.apikey = '12345';
 
       httpOperations.upload('', true, callback);
       fs.stat.args[0][1](null, 2000);
 
-      expect(rest.post.args[0][1].data.export_type).to.equal('single');
+      expect(httpOperations.doCall.args[0][2].data.export_type).to.equal('single');
     });
 
-    it('should call the callback with the prescibed error on a successful request', function() {
+    it('should call the callback with nothing on a successful request and set the status url',
+      function() {
       httpOperations.upload('', true, callback);
       fs.stat.args[0][1](null, 2000);
-      onSuccess.args[0][1]({
-        status: 'error',
-        msg: 'An Error'
-      });
-
-      calledOnceWith(callback, 'An Error');
-    });
-
-    it('should call the callback with nothing on a successful non error request and set the status'+
-       ' url', function() {
-      httpOperations.upload('', true, callback);
-      fs.stat.args[0][1](null, 2000);
-      onSuccess.args[0][1]({
+      httpOperations.doCall.args[0][3]({
         status: 'success',
         status_url: 'http://localhost:82/status'
       });
@@ -153,54 +200,23 @@ describe('HttpOperations', function() {
       expect(httpOperations.statusUrl).to.equal('http://localhost:82/status');
       calledOnceWith(callback, undefined);
     });
-
-    it('should call the callback with the error code on an unsuccessful request', function() {
-      httpOperations.upload('', true, callback);
-      fs.stat.args[0][1](null, 2000);
-      onError.args[0][1]({
-        code: 'ECONNREFUSED'
-      });
-
-      calledOnceWith(callback, 'ECONNREFUSED');
-    });
   });
 
   describe('watchUpload', function() {
-    var callback, onSuccess, onError;
+    var callback;
     beforeEach(function() {
       callback = stub();
 
-      onError = stub();
-      onSuccess = stub().returns({on: onError});
-
-      stub(rest, 'get').returns({on: onSuccess});
+      stub(httpOperations, 'doCall');
     });
 
-    afterEach(function() {
-      rest.get.restore();
-    })
-
-    it('should call restlers get with the statusUrl and authorization header', function() {
+    it('should doCall with the statusUrl', function() {
       httpOperations.statusUrl = 'http://localhost:82/status';
       httpOperations.apikey = '12345';
 
       httpOperations.watchUpload(100, callback);
 
-      calledOnceWith(rest.get, 'http://localhost:82/status', {
-        headers: {
-          'x-authorization': httpOperations.apikey
-        }
-      });
-    });
-
-    it('should call the callback with the error message when one occurs', function() {
-      httpOperations.watchUpload(100, callback);
-      onSuccess.args[0][1]({
-        status: 'error',
-        msg: 'An Error'
-      });
-
-      calledOnceWith(callback, 'An Error');
+      calledOnceWith(httpOperations.doCall, rest.get, 'http://localhost:82/status', {});
     });
 
     it('should recall the watchUpload after the poll time with the send in args and print a ' + 
@@ -211,7 +227,7 @@ describe('HttpOperations', function() {
       httpOperations.watchUpload(100, callback);
 
       stub(httpOperations, 'watchUpload');
-      onSuccess.args[0][1]({
+      httpOperations.doCall.args[0][3]({
         status: 'active',
         job: 'ajob_csv'
       });
@@ -228,7 +244,7 @@ describe('HttpOperations', function() {
     it('should call the callback with nothing and set the downloadUrl on a successful request ' +
        'when the file is found', function() {
       httpOperations.watchUpload(100, callback);
-      onSuccess.args[0][1]({
+      httpOperations.doCall.args[0][3]({
         status: 'completed',
         download_url: 'http://localhost:82/thejob/download'
       });
@@ -239,7 +255,7 @@ describe('HttpOperations', function() {
 
     it('should call the callback with the error code on an unsuccessful request', function() {
       httpOperations.watchUpload(100, callback);
-      onError.args[0][1]({
+      httpOperations.doCall.args[0][4]({
         code: 'ECONNREFUSED'
       });
 
@@ -396,49 +412,30 @@ describe('HttpOperations', function() {
   });
 
   describe('remove', function() {
-    var callback, onSuccess, onError;
+    var callback
     beforeEach(function() {
       callback = stub();
-
-      onError = stub();
-      onSuccess = stub().returns({on: onError});
-
-      stub(rest, 'del').returns({on: onSuccess});
+      stub(httpOperations, 'doCall');
     });
 
-    afterEach(function() {
-      rest.del.restore();
-    });
-
-    it('should call restlers delete with the right connection info', function() {
+    it('should doCall with the right connection info', function() {
       httpOperations.apikey = '12345';
       httpOperations.statusUrl = 'http://localhost:82/status';
 
       httpOperations.remove(callback);
 
-      calledOnceWith(rest.del, 'http://localhost:82/status', {
-        headers: {
-          'x-authorization': '12345'
-        }
-      });
+      calledOnceWith(httpOperations.doCall, rest.del, 'http://localhost:82/status', {});
     });
 
-    it('should call the callback with error message or nothing on a successfl request', function() {
+    it('should call the callback with nothing on a successful request', function() {
       httpOperations.remove(callback);
-      onSuccess.args[0][1]({
-        error: 'error',
-        msg: 'An Error'
-      });
-
-      calledOnceWith(callback, 'An Error');
-
-      onSuccess.args[0][1]();
-      expect(callback.args[1][0]).to.be.undefined;
+      httpOperations.doCall.args[0][3]();
+      calledOnceWith(callback, undefined);
     });
 
-    it('should call the callback with the error code on an unsuccessful request', function() {
+    it('should call the callback with the error code on a unsuccessful request', function() {
       httpOperations.remove(callback);
-      onError.args[0][1]({
+      httpOperations.doCall.args[0][4]({
         code: 'ECONNREFUSED'
       });
 

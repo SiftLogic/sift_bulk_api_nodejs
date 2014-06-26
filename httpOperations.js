@@ -38,10 +38,36 @@ module.exports = function() {
 
   /**
    * @description
+   * Calls the server with the method using the passed in parameters
+   *
+   * @param {function(url, options)} method The http library function to call.
+   * @param {string} url The full path of the location to connect to.
+   * @param {Object} options Options on top of the authorization header. e.g. query parameters.
+   * @param {function(data)} onSuccess Called after a successful request has no errors, passes resp.
+   * @param {function(data)} onSuccess Called after an errored passes response.
+   * @param {function(err="")} callback The basic callback sent into the upload/remove/etc.
+   */
+  self.doCall = function(method, url, options, onSuccess, onError, callback) {
+    options.headers = {
+      'x-authorization': self.apikey
+    }
+
+    method(url, options).on('success', function(data) {
+      if (data && (data.error || data.status === 'error')){
+        return callback(data.msg);
+      }
+      onSuccess && onSuccess(data);
+    }).on('error', function(error) {
+      onError && onError(error);
+    });
+  };
+
+  /**
+   * @description
    * Uploads the given file.
    *
    * @param {string} filename The local file to upload. Absolute path must be used.
-   * @param {boolean=}  singleFile Whether to upload in singleFile mode.
+   * @param {boolean=false}  singleFile Whether to upload in singleFile mode.
    * @param {function(err="")} callback Called when the function completes or there is an error.
    */
   self.upload = function(filename, singleFile, callback) {
@@ -50,28 +76,17 @@ module.exports = function() {
         return callback(err);
       }
 
-      rest.post(self.baseUrl, {
-        headers: {
-          'x-authorization': self.apikey
-        },
-
+      self.doCall(rest.post, self.baseUrl, {
         multipart: true,
         data: {
           file: rest.file(filename, null, stats.size),
           export_type: singleFile ? 'single' : 'multi'
         }
-      // Need to handle connection and custom errors from the server.
-      }).on('success', function(data) {
-        if(data && data.status === 'error'){
-          return callback(data.msg);
-        }
-
+      }, function(data) {
         self.statusUrl = data.status_url;
 
         return callback();
-      }).on('error', function(error) {
-        return callback(error.code);
-      });
+      }, null, callback);
     });
   };
 
@@ -84,14 +99,8 @@ module.exports = function() {
    * @param {function(err="")} callback Called when the function completes or there is an error.
    */
     self.watchUpload = function(pollEvery, callback) {
-      rest.get(self.statusUrl, {
-        headers: {
-          'x-authorization': self.apikey
-        }
-      }).on('success', function(data) {
-        if (data && data.status === 'error'){
-          return callback(data.msg);
-        } else if (data && data.status === 'completed'){
+      self.doCall(rest.get, self.statusUrl, {}, function(data) {
+        if (data && data.status === 'completed'){
           self.downloadUrl = data.download_url;
 
           return callback();
@@ -101,7 +110,7 @@ module.exports = function() {
             self.watchUpload(pollEvery, callback);
           }, pollEvery);
         }
-      }).on('error', function(error) {
+      }, function(error) {
         return callback(error.code);
       });
     };
@@ -128,6 +137,8 @@ module.exports = function() {
           fullLocation = location + '/' + newFile + '.zip',
           urlObj = url.parse(self.downloadUrl);
 
+      // Restler does not have enough support for archive file downloads so this needs to be done
+      // with pure http.
       http.get({
         hostname: urlObj.hostname,
         port: urlObj.port,
@@ -183,23 +194,16 @@ module.exports = function() {
     });
   };
 
- /**
+  /**
    * @description
    * Removes the last uploaded file from the server.
    *
    * @param {function(err="")} callback Called when the function completes or there is an error.
    */
   self.remove = function(callback) {
-    rest.del(self.statusUrl, {
-      headers: {
-        'x-authorization': self.apikey
-      }
-    }).on('success', function(data) {
-      if (data && data.error){
-        return callback(data.msg);
-      }
+    self.doCall(rest.del, self.statusUrl, {}, function(data) {
       return callback();
-    }).on('error', function(error) {
+    }, function(error) {
       return callback(error.code);
     });
   };
