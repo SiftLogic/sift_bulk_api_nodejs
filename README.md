@@ -42,7 +42,7 @@ Files And Folders
 * **operations.js:** Object that interfaces with server connection modes.
 * **ftpOperations.js:** Object that provides an FTP interface to the server.
 * **httpOperations.js:** Object that provides an HTTP interface to the server.
-* ***Test.js:** 100% code coverage unit tests of API functionality. It is recommended that you update these if you want to customize operations.js.
+* **\*Test.js:** 100% code coverage unit tests of API functionality. It is recommended that you update these if you want to customize operations.js.
 * **package.json:** Standard NPM specification file.
 * **node_modules:** Standard location of project specific node libraries.
 * **test.csv:** A small sample records file.
