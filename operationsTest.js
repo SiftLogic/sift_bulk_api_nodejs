@@ -11,16 +11,18 @@ var Operations = require('./operations'),
     FtpOperations = require('./ftpOperations');
 
 describe('Operations', function() {
-  var operations, username, password, port, host, operationsFromInit;
+  var operations, username, password, port, host, notify, operationsFromInit;
   beforeEach(function() {
     username = 'TestKey';
     password = 'e261742d-fe2f-4569-95e6-312689d04903';
     port = 9871;
     host = 'localhost';
+    notify = 'test@test.com';
 
     operations = new Operations({
       username: username,
-      password: password
+      password: password,
+      notify: notify
     });
 
     stub(operations, 'FtpOperations').returns({
@@ -63,6 +65,7 @@ describe('Operations', function() {
     expect(operations.getProtocol()).to.equal('http');
 
     expect(operations.uploadFileName).to.be.null;
+    expect(operations.notify).to.be.null;
   });
 
   it('should set a custom host and port when specified', function() {
@@ -95,6 +98,16 @@ describe('Operations', function() {
     });
 
     expect(operations.getProtocol()).to.equal('ftp');
+  });
+
+  it('should set the notify email when it is specified', function() {
+    operations = new Operations({
+      username: username,
+      password: password,
+      notify: notify
+    });
+
+    expect(operations.notify).to.equal(notify);
   });
 
   describe('init', function() {
@@ -134,13 +147,14 @@ describe('Operations', function() {
       calledOnceWith(operations.ftpOperations.upload, operations.username,'test.csv',true,callback);
     });
 
-    it('should call the http upload with the sent in args when in http mode', function() {
+    it('should call the http upload with the sent in args and notify email when in http mode',
+      function() {
       operations.httpOperations.upload = stub();
       var callback = stub();
 
       operations.upload('test.csv', true, callback);
 
-      calledOnceWith(operations.httpOperations.upload, 'test.csv', true, callback);
+      calledOnceWith(operations.httpOperations.upload, 'test.csv', true, notify, callback);
     });
   });
 

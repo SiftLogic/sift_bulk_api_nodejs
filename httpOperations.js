@@ -18,7 +18,7 @@ module.exports = function() {
     statusUrl: null,// Set on upload
     downloadUrl: null,// Set on a successful finish of polling for watchUpload
     apikey: null,
-    downloadError: null,// If any download error occurs it will be stored here
+    downloadError: null// If any download error occurs it will be stored here
   };
 
   /**
@@ -67,10 +67,12 @@ module.exports = function() {
    * Uploads the given file.
    *
    * @param {string} filename The local file to upload. Absolute path must be used.
-   * @param {boolean=false}  singleFile Whether to upload in singleFile mode.
+   * @param {boolean}  [singleFile=false] Whether to upload in singleFile mode.
+   * @param {string=} [notify=null] The full email address to notify once an upload completes. If
+   *                                an empty value is sent no address will be contacted.
    * @param {function(err="")} callback Called when the function completes or there is an error.
    */
-  self.upload = function(filename, singleFile, callback) {
+  self.upload = function(filename, singleFile, notify, callback) {
     fs.stat(filename, function(err, stats) {
       if (err) {
         return callback(err);
@@ -80,7 +82,8 @@ module.exports = function() {
         multipart: true,
         data: {
           file: rest.file(filename, null, stats.size),
-          export_type: singleFile ? 'single' : 'multi'
+          export_type: singleFile ? 'single' : 'multi',
+          notify_email: notify || ''
         }
       }, function(data) {
         self.statusUrl = data.status_url;
@@ -95,7 +98,7 @@ module.exports = function() {
    * Calls the callback once the last uploaded file (indicated by status url) has been loaded or 
    * there is an error.
    *
-   * @param pollEvery The number of milleseconds to poll for.
+   * @param {integer} pollEvery The number of milleseconds to poll for.
    * @param {function(err="")} callback Called when the function completes or there is an error.
    */
     self.watchUpload = function(pollEvery, callback) {
@@ -121,7 +124,7 @@ module.exports = function() {
    * The downloaded file name is just <job name>.zip .
    *
    * @param {string} location The path and file to download to.
-   * @param pollEvery The number of milleseconds to poll for.
+   * @param {integer} pollEvery The number of milleseconds to poll for.
    * @param {boolean} [removeAfter=false] If the results file should be removed after downloading.
    * @param {function(err="", downloadName)} callback Called when the function completes or there is
    *                                                  an error. Also, gives downloadName on success.

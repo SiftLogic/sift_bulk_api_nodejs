@@ -149,10 +149,20 @@ describe('HttpOperations', function() {
     afterEach(function() {
       fs.stat.restore();
       rest.file.restore();
-    })
+    });
+
+    var checkOption = function(uploadArgs, value, shouldBe) {
+      httpOperations.location = 'http://localhost:80';
+      httpOperations.apikey = '12345';
+
+      httpOperations.upload.apply(null, uploadArgs);
+      fs.stat.args[0][1](null, 2000);
+
+      expect(httpOperations.doCall.args[0][2].data[value]).to.equal(shouldBe);
+    }
 
     it('should call the callback with the error from retrieving file statistics', function() {
-      httpOperations.upload('test.csv', false, callback);
+      httpOperations.upload('test.csv', false, null, callback);
 
       calledOnceWith(fs.stat, 'test.csv');
 
@@ -165,32 +175,32 @@ describe('HttpOperations', function() {
       httpOperations.baseUrl = 'http://localhost:80';
       httpOperations.apikey = '12345';
 
-      httpOperations.upload('test.csv', false, callback);
+      httpOperations.upload('test.csv', false, null, callback);
       fs.stat.args[0][1](null, {size: 2000});
 
       calledOnceWith(rest.file, 'test.csv', null, 2000);
+
       calledOnceWith(httpOperations.doCall, rest.post, 'http://localhost:80', {
         multipart: true,
         data: {
           file: fileInfo,
-          export_type: 'multi'
+          export_type: 'multi',
+          notify_email: ''
         }
       });
     });
 
     it('should doCall with single when singleFile is true', function() {
-      httpOperations.location = 'http://localhost:80';
-      httpOperations.apikey = '12345';
+      checkOption(['', true, null, callback], 'export_type', 'single');
+    });
 
-      httpOperations.upload('', true, callback);
-      fs.stat.args[0][1](null, 2000);
-
-      expect(httpOperations.doCall.args[0][2].data.export_type).to.equal('single');
+    it('should doCall with single when singleFile is true', function() {
+      checkOption(['', false, 'test@test.com', callback], 'notify_email', 'test@test.com');
     });
 
     it('should call the callback with nothing on a successful request and set the status url',
       function() {
-      httpOperations.upload('', true, callback);
+      httpOperations.upload('', true, null, callback);
       fs.stat.args[0][1](null, 2000);
       httpOperations.doCall.args[0][3]({
         status: 'success',

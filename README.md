@@ -10,7 +10,7 @@ have that you can try the main.js file for an upload demo. For example:
 </pre>
 The CLI is described in more detail with <code>./main.js</code>
 
-It is recommended to require the operations file and use the functions in there to customize your process. The functions are described in file. If you want to cut down on code, this file only requires jsftp, restler and the \<mode\>Operations.js.
+It is recommended to require the operations file and use the functions in there to customize your process. The functions are described in file.
 
 Licensing
 =========

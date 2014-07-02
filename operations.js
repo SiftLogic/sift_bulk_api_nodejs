@@ -16,6 +16,8 @@ var JSFtp = require('jsftp'),
  *                                    if falsey.
  * @param {string=} [opts.polling="300"] Poll every polling seconds. 300 = 5 minutes.
  * @param {string=} [opts.protocol="http"] What protocol to use to transfer data. Defaults to http.
+ * @param {string=} [opts.notify=null] The full email address to notify once an upload completes.
+ *                                     Defaults to null.
  * 
  * @returns {Operations} Instantiated version of the options class.
  */
@@ -46,7 +48,9 @@ module.exports = function(opts) {
     HttpOperations: HttpOperations,// Make testing what is sent to this possible
     ftp: null,
 
-    POLL_EVERY: (opts.polling || 300) * 1000// convert seconds to milliseconds
+    POLL_EVERY: (opts.polling || 300) * 1000,// convert seconds to milliseconds
+
+    notify: opts.notify || null
   };
   setProtocol(opts.protocol || 'http');
 
@@ -90,7 +94,7 @@ module.exports = function(opts) {
     if (self.getProtocol() === 'ftp'){
       self.ftpOperations.upload(self.username, filename, singleFile, callback);
     } else {
-      self.httpOperations.upload(filename, singleFile, callback);
+      self.httpOperations.upload(filename, singleFile, self.notify, callback);
     }
   };
 

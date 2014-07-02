@@ -25,7 +25,8 @@ var argv = require('yargs')
     port: 'The port to connect to (default 21)',
     singleFile: 'Whether to run in single file mode (defaults to false)',
     remove: 'Remove the corresponding results file of the uploaded file (defaults to false)',
-    protocol: 'Which type of protocol to use (defaults to http)'
+    protocol: 'Which type of protocol to use (defaults to http)',
+    notify: 'The full email address to notify (Defaults to sending to no address)'
   })
   .argv;
 
@@ -38,7 +39,8 @@ var operations = new Operations({
     host: argv.host,
     port: argv.port,
     polling: argv.poll,
-    protocol: argv.protocol
+    protocol: argv.protocol,
+    notify: argv.notify
   }).init();
 
 operations.upload(argv.f, argv.singleFile, function(err) {
@@ -46,6 +48,9 @@ operations.upload(argv.f, argv.singleFile, function(err) {
     throw err;
   }
   console.log(argv.f, 'was uploaded.');
+  if (argv.notify){
+    console.log(argv.notify, 'will be emailed when the processing is complete.');
+  }
 
   operations.download(argv.l, argv.remove, function(err, downloadName) {
     if (err) {
