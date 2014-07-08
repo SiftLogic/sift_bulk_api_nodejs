@@ -56,13 +56,13 @@ describe('HttpOperations', function() {
       expect(httpOperations.apikey).to.equal(password);
     });
 
-    it('should set the port to 80 when it is not specified', function() {
+    it('should set the port to 8080 when it is not specified', function() {
       httpOperations.init({
         host: host,
         password: password,
       });
 
-      expect(httpOperations.baseUrl).to.equal('http://' + host + ':80/api/live/bulk/');
+      expect(httpOperations.baseUrl).to.equal('http://' + host + ':8080/api/live/bulk/');
     });
 
     it('should return the newly created http object', function() {

@@ -12,8 +12,8 @@
  **/
 var argv = require('yargs')
   .usage('Usage: $0 -f [file name] -l [download location] -u [username] -p [password]')
-  .example('$0 -f ../test.csv -l /tmp --u TestKey -p e261742d-fe2f-4569-95e6-312689d049 --poll 10', 
-           'Upload test.csv, process it and download the results to /tmp, poll every 10s')
+  .example('$0 -f test.csv -l /tmp -p e261742d-fe2f-4569-95e6-312689d049 --poll 10', 
+           'Upload test.csv with HTTP, process it and download the results to /tmp, poll every 10s')
   .demand(['f', 'l', 'p'])
   .describe({
     f: 'The file path of the upload file',
@@ -22,7 +22,7 @@ var argv = require('yargs')
     p: 'The password defined in the manage api keys section',
     poll: 'The number of seconds to poll for (default 300)',
     host: 'The host to connect to (default localhost)',
-    port: 'The port to connect to (default 21)',
+    port: 'The port to connect to (default 21 ftp and 8080 http)',
     singleFile: 'Whether to run in single file mode (defaults to false)',
     remove: 'Remove the corresponding results file of the uploaded file (defaults to false)',
     protocol: 'Which type of protocol to use (defaults to http)',

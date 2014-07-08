@@ -25,10 +25,10 @@ module.exports = function() {
    * @description
    * Setups the http connection.
    * 
-   * @param {Object} Has connection information.(password, host, port). The port is 80 by default.
+   * @param {Object} Has connection information.(password, host, port). The port is 8080 by default.
    **/
   self.init = function init(opts) {
-    opts.port = opts.port || 80;
+    opts.port = opts.port || 8080;
 
     self.baseUrl = 'http://' + opts.host + ':' + opts.port + '/api/live/bulk/';
     self.apikey = opts.password;
