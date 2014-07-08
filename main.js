@@ -11,7 +11,7 @@
  * 3. Downloads the results to the specified location.
  **/
 var argv = require('yargs')
-  .usage('Usage: $0 -f [file name] -l [download location] -u [username] -p [password]')
+  .usage('Usage: $0 -f [file name] -l [download location] -p [password]')
   .example('$0 -f test.csv -l /tmp -p e261742d-fe2f-4569-95e6-312689d049 --poll 10', 
            'Upload test.csv with HTTP, process it and download the results to /tmp, poll every 10s')
   .demand(['f', 'l', 'p'])
