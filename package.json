@@ -4,13 +4,14 @@
   "description": "A simple node FTP server for connecting to our APIs",
   "main": "main.js",
   "scripts": {
-    "test": "mocha operationsTest.js"
+    "test": "mocha *Test.js"
   },
   "author": "Jacob Friesen",
   "devDependencies": {
     "jsftp": "~1.3.0",
     "sinon": "~1.9.1",
     "chai": "~1.9.1",
-    "yargs": "~1.2.2"
+    "yargs": "~1.2.2",
+    "restler": "~3.2.2"
   }
 }

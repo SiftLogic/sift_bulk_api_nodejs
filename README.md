@@ -1,16 +1,16 @@
-Node.js FTP API
-===============
+Node.js Bulk API
+================
 
-This demonstrates how to connect to the ftp server with Node.js. You will need to know your apikey and password which can be found in the UI: API Keys -\> Manage -\> Actions -\> Access Details. Once you
-have that you can try the main.js file for an upload demo. For example:
+This demonstrates how to connect to the bulk server with Node.js. Currently, HTTP and FTP are supported for connections. Unlike FTP, HTTP requires no username just the password (auth token). The apikey and password/auth token are found in the UI: API Keys -\> Manage -\> Actions -\> Access Details. Once you
+have that you can try the main.js file for an upload demo. For example, using HTTP:
 <pre>
   <code>
-    ./main.js -f test.csv -l /tmp -u aUsername -p e261742d-fe2f-4569-95e6-312689d04903 --poll 10
+    ./main.js -f test.csv -l /tmp -p e261742d-fe2f-4569-95e6-312689d049 --poll 10
   </code>
 </pre>
 The CLI is described in more detail with <code>./main.js</code>
 
-It is recommended to require the operations file and use the functions in there to customize your process. The functions are described in file. If you want to cut down on code, this file only requires jsftp as a node module.
+It is recommended to require the operations file and use the functions in there to customize your process. The functions are described in file.
 
 Licensing
 =========
@@ -39,8 +39,10 @@ If you want to run the tests (<code>npm test</code>) or (<code>mocha test</code>
 Files And Folders
 =================
 * **main.js:** Example CLI that uploads a file, polls for it to complete, then downloads it.
-* **operations.js:** Object that controls server connections.
-* **operations_test.js:** 100% code coverage unit tests of operations.js. It is recommended that you update this if you want to customize operations.js.
+* **operations.js:** Object that interfaces with server connection modes.
+* **ftpOperations.js:** Object that provides an FTP interface to the server.
+* **httpOperations.js:** Object that provides an HTTP interface to the server.
+* **\*Test.js:** 100% code coverage unit tests of API functionality. It is recommended that you update these if you want to customize operations.js.
 * **package.json:** Standard NPM specification file.
 * **node_modules:** Standard location of project specific node libraries.
 * **test.csv:** A small sample records file.
