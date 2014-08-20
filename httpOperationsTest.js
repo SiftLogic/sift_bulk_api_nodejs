@@ -198,6 +198,17 @@ describe('HttpOperations', function() {
       checkOption(['', false, 'test@test.com', callback], 'notify_email', 'test@test.com');
     });
 
+    it('should call the callback with an error when the connection is refused',
+      function() {
+      httpOperations.upload('', true, null, callback);
+      fs.stat.args[0][1](null, 2000);
+      httpOperations.doCall.args[0][4]({
+        code: 'ECONNREFUSED'
+      });
+
+      calledOnceWith(callback,'Error: The connection to ' +httpOperations.baseUrl +' was refused.');
+    });
+
     it('should call the callback with nothing on a successful request and set the status url',
       function() {
       httpOperations.upload('', true, null, callback);

@@ -89,7 +89,11 @@ module.exports = function() {
         self.statusUrl = data.status_url;
 
         return callback();
-      }, null, callback);
+      }, function(data) {
+        if (data.code === 'ECONNREFUSED'){
+          return callback('Error: The connection to ' + self.baseUrl + ' was refused.');
+        }
+      }, callback);
     });
   };
 
