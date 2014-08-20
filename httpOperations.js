@@ -15,7 +15,7 @@ module.exports = function() {
   var self = {
     http: null,
     baseUrl: null,// Set on init
-    statusUrl: null,// Set on upload
+    statusUrls: null,// Set on upload if the file was too large and had to be split
     downloadUrl: null,// Set on a successful finish of polling for watchUpload
     apikey: null,
     downloadError: null// If any download error occurs it will be stored here
@@ -86,7 +86,18 @@ module.exports = function() {
           notify_email: notify || ''
         }
       }, function(data) {
-        self.statusUrl = data.status_url;
+        if (data.status_url){
+          self.statusUrls = [data.status_url];
+        } else {
+          if (data.jobs.length > 1) {
+            console.log(data.jobs[0].msg);
+          }
+
+          self.statusUrls = [];
+          data.jobs.forEach(function(job) {
+            self.statusUrls.push(job.status_url);
+          });
+        }
 
         return callback();
       }, function(data) {
@@ -103,10 +114,11 @@ module.exports = function() {
    * there is an error.
    *
    * @param {integer} pollEvery The number of milleseconds to poll for.
+   * @param {string} the location to poll for the file.
    * @param {function(err="")} callback Called when the function completes or there is an error.
    */
-    self.watchUpload = function(pollEvery, callback) {
-      self.doCall(rest.get, self.statusUrl, {}, function(data) {
+    self.watchUpload = function(pollEvery, statusUrl, callback) {
+      self.doCall(rest.get, statusUrl, {}, function(data) {
         if (data && data.status === 'completed'){
           self.downloadUrl = data.download_url;
 
@@ -114,7 +126,7 @@ module.exports = function() {
         } else {
           setTimeout(function() {
             console.log('Waiting for the job', data.job, '...');
-            self.watchUpload(pollEvery, callback);
+            self.watchUpload(pollEvery, statusUrl, callback);
           }, pollEvery);
         }
       }, function(error) {
@@ -124,53 +136,55 @@ module.exports = function() {
 
   /**
    * @description
-   * Polls until the results can be downloaded. Uses the last uploaded status url (self.statusUrl).
-   * The downloaded file name is just <job name>.zip .
+   * Polls until the results can be downloaded. Uses the last uploaded status urls 
+   * (self.statusUrls). The downloaded file name is just <job name>.zip.
    *
    * @param {string} location The path and file to download to.
    * @param {integer} pollEvery The number of milleseconds to poll for.
    * @param {boolean} [removeAfter=false] If the results file should be removed after downloading.
-   * @param {function(err="", downloadName)} callback Called when the function completes or there is
+   * @param {function(err="", downloadName)} callback Called when a download completes or there is
    *                                                  an error. Also, gives downloadName on success.
    */
   self.download = function(location, pollEvery, removeAfter, callback) {
-    self.watchUpload(pollEvery, function(err) {
-      if (err){
-        return callback(err);
-      }
-
-      location = location.replace(new RegExp('\/$'), '');// Remove trailing slash if present
-      var newFile = self.statusUrl.split('/').pop(),
-          fullLocation = location + '/' + newFile + '.zip',
-          urlObj = url.parse(self.downloadUrl);
-
-      // Restler does not have enough support for archive file downloads so this needs to be done
-      // with pure http.
-      http.get({
-        hostname: urlObj.hostname,
-        port: urlObj.port,
-        path: urlObj.path,
-        headers: {
-          'x-authorization': self.apikey
+    self.statusUrls.forEach(function(statusUrl) {
+      self.watchUpload(pollEvery, statusUrl, function(err) {
+        if (err){
+          return callback(err);
         }
-      }, function(response) {
-        self.handleServerDownloadError(response);
 
-        var file = fs.createWriteStream(fullLocation);
-        response.pipe(file);
-        file.on('finish', function() {
-          file.close(function() {
-            if (!self.downloadError && removeAfter) {
-              return self.remove(function(err) { 
-                callback(err, fullLocation); 
-              });
-            }
-            return callback(self.downloadError, fullLocation);
+        location = location.replace(new RegExp('\/$'), '');// Remove trailing slash if present
+        var newFile = statusUrl.split('/').pop(),
+            fullLocation = location + '/' + newFile + '.zip',
+            urlObj = url.parse(self.downloadUrl);
+
+        // Restler does not have enough support for archive file downloads so this needs to be done
+        // with pure http.
+        http.get({
+          hostname: urlObj.hostname,
+          port: urlObj.port,
+          path: urlObj.path,
+          headers: {
+            'x-authorization': self.apikey
+          }
+        }, function(response) {
+          self.handleServerDownloadError(response);
+
+          var file = fs.createWriteStream(fullLocation);
+          response.pipe(file);
+          file.on('finish', function() {
+            file.close(function() {
+              if (!self.downloadError && removeAfter) {
+                return self.remove(function(err) { 
+                  callback(err, fullLocation); 
+                });
+              }
+              return callback(self.downloadError, fullLocation);
+            });
           });
+        }).on('error', function(err) {
+          fs.unlink(fullLocation);
+          return callback(err);
         });
-      }).on('error', function(err) {
-        fs.unlink(fullLocation);
-        callback(err);
       });
     });
   };

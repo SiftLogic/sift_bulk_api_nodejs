@@ -43,7 +43,7 @@ describe('HttpOperations', function() {
 
     expect(httpOperations.http).to.equal(null);
     expect(httpOperations.baseUrl).to.equal(null);
-    expect(httpOperations.statusUrl).to.equal(null);
+    expect(httpOperations.statusUrls).to.equal(null);
     expect(httpOperations.downloadUrl).to.equal(null);
     expect(httpOperations.apikey).to.equal(null);
     expect(httpOperations.downloadError).to.equal(null);
@@ -218,8 +218,60 @@ describe('HttpOperations', function() {
         status_url: 'http://localhost:82/status'
       });
 
-      expect(httpOperations.statusUrl).to.equal('http://localhost:82/status');
+      expect(httpOperations.statusUrls).to.deep.equal(['http://localhost:82/status']);
       calledOnceWith(callback, undefined);
+    });
+
+    it('should do the same as the last, but set the status urls if the file was split ' + 
+       'and print a file was split message.',
+      function() {
+      stub(console, 'log');
+
+      httpOperations.upload('', true, null, callback);
+      fs.stat.args[0][1](null, 2000);
+      httpOperations.doCall.args[0][3]({
+        status: 'success',
+        jobs: [ 
+          {
+            msg: 'test.csv was automatically split',
+            status_url: 'http://localhost:82/status1'
+          },
+          {
+            msg: 'test.csv was automatically split',
+            status_url: 'http://localhost:82/status2'
+          }
+       ]
+      });
+
+      expect(httpOperations.statusUrls).deep.equal([
+        'http://localhost:82/status1',
+        'http://localhost:82/status2'
+      ]);
+      calledOnceWith(callback, undefined);
+      calledOnceWith(console.log, 'test.csv was automatically split');
+
+      console.log.restore();
+    });
+
+    it('should not print a message if the file was not split',
+      function() {
+      stub(console, 'log');
+
+      httpOperations.upload('', true, null, callback);
+      fs.stat.args[0][1](null, 2000);
+      httpOperations.doCall.args[0][3]({
+        status: 'success',
+        jobs: [ 
+          {
+            msg: 'test.csv was automatically split',
+            status_url: 'http://localhost:82/status1'
+          }
+       ]
+      });
+
+      expect(console.log.called).to.be.false;
+
+      console.log.restore();
     });
   });
 
@@ -232,10 +284,9 @@ describe('HttpOperations', function() {
     });
 
     it('should doCall with the statusUrl', function() {
-      httpOperations.statusUrl = 'http://localhost:82/status';
       httpOperations.apikey = '12345';
 
-      httpOperations.watchUpload(100, callback);
+      httpOperations.watchUpload(100, 'http://localhost:82/status', callback);
 
       calledOnceWith(httpOperations.doCall, rest.get, 'http://localhost:82/status', {});
     });
@@ -245,7 +296,7 @@ describe('HttpOperations', function() {
       var clock = sinon.useFakeTimers();
       stub(console, 'log');
 
-      httpOperations.watchUpload(100, callback);
+      httpOperations.watchUpload(100, 'http://localhost:82/status', callback);
 
       stub(httpOperations, 'watchUpload');
       httpOperations.doCall.args[0][3]({
@@ -257,14 +308,14 @@ describe('HttpOperations', function() {
 
       expect(clock.timeouts[2].callAt).to.equal(100);
       calledOnceWith(console.log, 'Waiting for the job', 'ajob_csv', '...');
-      calledOnceWith(httpOperations.watchUpload, 100, callback);
+      calledOnceWith(httpOperations.watchUpload, 100, 'http://localhost:82/status', callback);
 
       console.log.restore();
     });
 
     it('should call the callback with nothing and set the downloadUrl on a successful request ' +
        'when the file is found', function() {
-      httpOperations.watchUpload(100, callback);
+      httpOperations.watchUpload(100, null, callback);
       httpOperations.doCall.args[0][3]({
         status: 'completed',
         download_url: 'http://localhost:82/thejob/download'
@@ -275,7 +326,7 @@ describe('HttpOperations', function() {
     });
 
     it('should call the callback with the error code on an unsuccessful request', function() {
-      httpOperations.watchUpload(100, callback);
+      httpOperations.watchUpload(100, null, callback);
       httpOperations.doCall.args[0][4]({
         code: 'ECONNREFUSED'
       });
@@ -297,11 +348,12 @@ describe('HttpOperations', function() {
       stub(httpOperations, 'remove');
       stub(http, 'get').returns({on: onError});
       stub(fs, 'createWriteStream').returns({on: onFinish, close: onClose});
-
-      httpOperations.statusUrl = 'http://localhost:80/status/test_file';
+      httpOperations.statusUrls = [
+        'http://localhost:80/status/part1/test_file',
+        'http://localhost:80/status2/part2/test_file'
+      ];
+      
       httpOperations.downloadUrl = 'http://localhost:80/test_file/download';
-
-      httpOperations.download('/tmp', 100, false, callback);
     });
 
     afterEach(function() {
@@ -309,21 +361,30 @@ describe('HttpOperations', function() {
       fs.createWriteStream.restore();
     });
 
-    it('should call watchUpload with the polling time', function() {
-      calledOnceWith(httpOperations.watchUpload, 100);
+    it('should call watchUpload with the polling time and each statusUrl', function() {
+      httpOperations.download('/tmp', 100, false, callback);
+
+      var watch = httpOperations.watchUpload;
+      expect(watch.calledTwice).to.be.true;
+      expect(watch.args[0][0]).to.equal(100);
+      expect(watch.args[0][1]).to.equal('http://localhost:80/status/part1/test_file');
+      expect(watch.args[1][0]).to.equal(100);
+      expect(watch.args[1][1]).to.equal('http://localhost:80/status2/part2/test_file');
     });
 
     it('should call callback with an error when watchUpload has one', function() {
       httpOperations.download('/tmp', 100, false, callback);
-      httpOperations.watchUpload.args[0][1]('An Error');
+      httpOperations.watchUpload.args[0][2]('An Error');
 
       calledOnceWith(callback, 'An Error');
     });
 
     it('should call http get with the right download info', function() {
+      httpOperations.download('/tmp', 100, false, callback);
+
       httpOperations.apikey = '12345';
 
-      httpOperations.watchUpload.args[0][1]();
+      httpOperations.watchUpload.args[0][2]();
 
       calledOnceWith(http.get, {
         hostname: 'localhost',
@@ -336,7 +397,9 @@ describe('HttpOperations', function() {
     });
 
     it('should call handleServerDownloadError with the response from the get response', function() {
-      httpOperations.watchUpload.args[0][1]();
+      httpOperations.download('/tmp', 100, false, callback);
+
+      httpOperations.watchUpload.args[0][2]();
 
       var pipe = stub();
       http.get.args[0][1]({pipe: pipe});
@@ -345,7 +408,9 @@ describe('HttpOperations', function() {
     });
 
     it('should pipe the file to the response and an error to the callback if needed', function() {
-      httpOperations.watchUpload.args[0][1]();
+      httpOperations.download('/tmp', 100, false, callback);
+
+      httpOperations.watchUpload.args[0][2]();
       httpOperations.downloadError = 'An Error';
 
       var pipe = stub();
@@ -365,7 +430,7 @@ describe('HttpOperations', function() {
 
     it('should call remove if removeAfter was specified and there was no download err', function() {
       httpOperations.download('/tmp', 100, true, callback);
-      httpOperations.watchUpload.args[1][1]();
+      httpOperations.watchUpload.args[1][2]();
       http.get.args[0][1]({pipe: stub()});
       onFinish.args[0][1]();
       onClose.args[0][0]();
@@ -377,8 +442,10 @@ describe('HttpOperations', function() {
     });
 
     it('should unlink the file and call the callback with the error on a connect err', function() {
+      httpOperations.download('/tmp', 100, false, callback);
+
       stub(fs, 'unlink');
-      httpOperations.watchUpload.args[0][1]();
+      httpOperations.watchUpload.args[0][2]();
 
       calledOnceWith(onError, 'error');
       onError.args[0][1]('An Error');
@@ -445,7 +512,7 @@ describe('HttpOperations', function() {
 
       httpOperations.remove(callback);
 
-      calledOnceWith(httpOperations.doCall, rest.del, 'http://localhost:82/status', {});
+      calledOnceWith(httpOperations.doCall, rest.del, httpOperations.statusUrl, {});
     });
 
     it('should call the callback with nothing on a successful request', function() {

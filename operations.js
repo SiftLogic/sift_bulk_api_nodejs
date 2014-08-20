@@ -100,11 +100,11 @@ module.exports = function(opts) {
 
   /**
    * @description
-   * Downloads the last uploaded file (self.uploadFileName).
+   * Downloads the last uploaded file's (self.uploadFileName) result file(s).
    *
-   * @param {string} location The location to download the file to.
+   * @param {string} location The location to download the file(s) to.
    * @param {boolean} [removeAfter=false] If the results file should be removed after downloading.
-   * @param {function(err="")} callback Called when the function completes or there is an error.
+   * @param {function(err="")} callback Called when a download completes or there is an error.
    */
   self.download = function(location, removeAfter, callback) {
     if (self.getProtocol() === 'ftp') {
