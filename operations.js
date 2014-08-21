@@ -119,12 +119,14 @@ module.exports = function(opts) {
    * Removes the results file from the server.
    *
    * @param {function(err="")} callback Called when the function completes or there is an error.
+   * @param {string} url The location to remove the file from. Used in HTTP removes.
+                         Defaults to undefined.
    */
-  self.remove = function(callback) {
+  self.remove = function(callback, url) {
     if (self.getProtocol() === 'ftp') {
       self.ftpOperations.remove(callback);
     } else {
-      self.httpOperations.remove(callback);
+      self.httpOperations.remove(callback, url);
     }
   };
 
