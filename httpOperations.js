@@ -114,7 +114,7 @@ module.exports = function() {
    * there is an error.
    *
    * @param {integer} pollEvery The number of milleseconds to poll for.
-   * @param {string} the location to poll for the file.
+   * @param {string} statusUrl the location to poll for the file.
    * @param {function(err="")} callback Called when the function completes or there is an error.
    */
     self.watchUpload = function(pollEvery, statusUrl, callback) {
@@ -174,7 +174,7 @@ module.exports = function() {
           file.on('finish', function() {
             file.close(function() {
               if (!self.downloadError && removeAfter) {
-                return self.remove(function(err) { 
+                return self.remove(statusUrl, function(err) { 
                   callback(err, fullLocation); 
                 });
               }
@@ -217,12 +217,13 @@ module.exports = function() {
 
   /**
    * @description
-   * Removes the last uploaded file from the server.
+   * Removes the specified result file at the status url from the server.
    *
+   * @param {string} statusUrl the location to poll for the file.
    * @param {function(err="")} callback Called when the function completes or there is an error.
    */
-  self.remove = function(callback) {
-    self.doCall(rest.del, self.statusUrl, {}, function(data) {
+  self.remove = function(statusUrl, callback) {
+    self.doCall(rest.del, statusUrl, {}, function(data) {
       return callback();
     }, function(error) {
       return callback(error.code);

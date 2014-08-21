@@ -436,7 +436,7 @@ describe('HttpOperations', function() {
       onClose.args[0][0]();
 
       calledOnceWith(httpOperations.remove);
-      httpOperations.remove.args[0][0]('test');
+      httpOperations.remove.args[0][1]('test');
 
       calledOnceWith(callback, 'test', '/tmp/test_file.zip');
     });
@@ -500,29 +500,30 @@ describe('HttpOperations', function() {
   });
 
   describe('remove', function() {
-    var callback
+    var callback, statusUrl;
     beforeEach(function() {
       callback = stub();
       stub(httpOperations, 'doCall');
+      statusUrl = 'http://localhost:80/status/part1/test_file';
     });
 
     it('should doCall with the right connection info', function() {
       httpOperations.apikey = '12345';
       httpOperations.statusUrl = 'http://localhost:82/status';
 
-      httpOperations.remove(callback);
+      httpOperations.remove(statusUrl, callback);
 
-      calledOnceWith(httpOperations.doCall, rest.del, httpOperations.statusUrl, {});
+      calledOnceWith(httpOperations.doCall, rest.del, statusUrl, {});
     });
 
     it('should call the callback with nothing on a successful request', function() {
-      httpOperations.remove(callback);
+      httpOperations.remove(statusUrl, callback);
       httpOperations.doCall.args[0][3]();
       calledOnceWith(callback, undefined);
     });
 
     it('should call the callback with the error code on a unsuccessful request', function() {
-      httpOperations.remove(callback);
+      httpOperations.remove(statusUrl, callback);
       httpOperations.doCall.args[0][4]({
         code: 'ECONNREFUSED'
       });
